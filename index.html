@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Квест-приключение</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --main-bg: #E6E6FA; /* светло-фиолетовый */ --accent: #268bd2; --text: #073642; --light: #eee8d5; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { display: flex; align-items: center; justify-content: center; height: 100vh; background: var(--main-bg); font-family: 'Nunito', sans-serif; color: var(--text); overflow: hidden; }
+    #container { position: relative; background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 8px 16px rgba(0,0,0,0.2); text-align: center; width: 90%; max-width: 400px; transform: scale(1); transition: transform 0.5s; }
+    #progress { height: 8px; background: var(--light); border-radius: 4px; overflow: hidden; margin-bottom: 1rem; }
+    #progress-inner { height: 100%; width: 0%; background: var(--accent); transition: width 0.5s; }
+    #prompt, #locationMsg { font-size: 1.2rem; margin-bottom: 1.5rem; opacity: 0; animation: fadeIn 0.6s forwards; }
+    input, button { font-family: inherit; }
+    #answer { width: 100%; padding: 0.8rem; border: 2px solid var(--accent); border-radius: 0.5rem; font-size: 1rem; transition: border-color 0.3s; }
+    #answer:focus { border-color: var(--text); outline: none; }
+    #check, #nextStep { margin-top: 1rem; padding: 0.8rem 2rem; background: var(--accent); color: white; border: none; border-radius: 0.5rem; font-size: 1rem; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: transform 0.2s; }
+    #check:hover, #nextStep:hover { transform: translateY(-2px); }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);} }
+    @keyframes popIn { from { transform: scale(0.8); opacity: 0;} to { transform: scale(1); opacity: 1;} }
+    .pop { animation: popIn 0.6s ease forwards; }
+    .hidden { display: none; }
+    @keyframes shake { 0% { transform: translateX(0);} 25% { transform: translateX(-5px);} 50% { transform: translateX(5px);} 75% { transform: translateX(-5px);} 100% { transform: translateX(0);} }
+    .shake { animation: shake 0.3s; }
+    /* Конфетти */
+    .confetti { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; }
+    .confetti span { position: absolute; display: block; width: 8px; height: 8px; background: var(--accent); opacity: 0.8; transform: translateY(-100%);
+      animation: fall 3s linear infinite;
+    }
+    @keyframes fall { to { transform: translateY(100vh) rotate(360deg); opacity: 0; } }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="progress"><div id="progress-inner"></div></div>
+    <div id="prompt"></div>
+    <input type="text" id="answer" placeholder="Ваш ответ" autocomplete="off" />
+    <button id="check">Проверить</button>
+    <div id="locationMsg" class="hidden"></div>
+    <button id="nextStep" class="hidden">Дальше</button>
+  </div>
+  <script>
+    const steps = [
+      { code: 'mama', question: 'Введите слово, одинаковое по-русски и по-английски', location: 'Загляни на кухню за следующим ключом.' },
+      { code: 'сердце', question: 'Что открывает этот ключ?', location: 'Проверь в ящике с ложками.' },
+      { code: '314', question: 'Введите секретное число', location: 'Открой свою сумку и найди конверт.' },
+      { code: 'smile', question: 'Расшифруйте текст', location: 'Смотри файл clue4.txt на своём ноутбуке.' }
+    ];
+    const finalCode = 'sunset'; // замените на код из конверта
+    let step = parseInt(localStorage.questStep) || 1;
+    let finalPhase = false;
+    const promptEl = document.getElementById('prompt');
+    const container = document.getElementById('container');
+    const answerEl = document.getElementById('answer');
+    const checkBtn = document.getElementById('check');
+    const nextBtn = document.getElementById('nextStep');
+    const locEl = document.getElementById('locationMsg');
+    const prog = document.getElementById('progress-inner');
+
+    function updateProgress() {
+      const pct = finalPhase ? 100 : (step > steps.length ? 100 : Math.round((step - 1) / steps.length * 100));
+      prog.style.width = pct + '%';
+    }
+    function showQuestion() {
+      container.classList.remove('pop'); clearConfetti();
+      promptEl.textContent = steps[step - 1].question;
+      promptEl.classList.remove('hidden'); locEl.classList.add('hidden'); nextBtn.classList.add('hidden');
+      answerEl.classList.remove('hidden'); checkBtn.classList.remove('hidden'); answerEl.value = ''; answerEl.focus();
+      updateProgress();
+    }
+    function showLocation() {
+      promptEl.classList.add('hidden');
+      locEl.textContent = steps[step - 1].location;
+      locEl.classList.remove('hidden');
+      answerEl.classList.add('hidden'); checkBtn.classList.add('hidden'); nextBtn.classList.remove('hidden');
+    }
+    function showFinalInput() {
+      finalPhase = true;
+      promptEl.textContent = 'Введите финальный код из конверта';
+      promptEl.classList.remove('hidden'); locEl.classList.add('hidden'); nextBtn.classList.add('hidden');
+      answerEl.classList.remove('hidden'); checkBtn.classList.remove('hidden'); answerEl.value = ''; answerEl.focus();
+      updateProgress();
+    }
+    function createConfetti() {
+      const confetti = document.createElement('div'); confetti.className = 'confetti';
+      for (let i = 0; i < 30; i++) {
+        const span = document.createElement('span');
+        span.style.left = Math.random() * 100 + '%';
+        span.style.background = `hsl(${Math.random()*360}, 70%, 60%)`;
+        span.style.animationDelay = Math.random() * 2 + 's';
+        confetti.appendChild(span);
+      }
+      document.body.append(confetti);
+      return confetti;
+    }
+    function clearConfetti() {
+      document.querySelectorAll('.confetti').forEach(el => el.remove());
+    }
+    function showFinalMessage() {
+      container.classList.add('pop');
+      promptEl.innerHTML = `
+        <strong>Дата:</strong> 14.08.2025<br>
+        <strong>Время:</strong> 20:00<br>
+        <strong>Место:</strong> Жастар сарайы<br>
+        <strong>Событие:</strong> Импровизационное шоу "Арзан Психологтар"<br><br>
+        Пусть этот вечер станет золотым закатом наших совместных мгновений — свечи, смех и тёплые разговоры только для нас двоих.
+      `;
+      promptEl.classList.remove('hidden');
+      answerEl.classList.add('hidden'); checkBtn.classList.add('hidden'); nextBtn.classList.add('hidden');
+      updateProgress();
+      clearConfetti(); createConfetti();
+    }
+
+    checkBtn.addEventListener('click', () => {
+      if (!finalPhase) {
+        if (answerEl.value.trim().toLowerCase() === steps[step - 1].code) {
+          showLocation();
+        } else {
+          answerEl.classList.add('shake'); setTimeout(() => answerEl.classList.remove('shake'), 300);
+        }
+      } else {
+        if (answerEl.value.trim().toLowerCase() === finalCode) {
+          showFinalMessage();
+        } else {
+          answerEl.classList.add('shake'); setTimeout(() => answerEl.classList.remove('shake'), 300);
+        }
+      }
+    });
+
+    nextBtn.addEventListener('click', () => {
+      step++; localStorage.questStep = step;
+      if (step > steps.length) {
+        showFinalInput();
+      } else {
+        showQuestion();
+      }
+    });
+
+    // Инициализация
+    if (step > steps.length) {
+      showFinalInput();
+    } else {
+      showQuestion();
+    }
+  </script>
+</body>
+</html>
